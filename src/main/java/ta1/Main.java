@@ -1,6 +1,4 @@
-package ta4;
-
-import org.omg.PortableServer.THREAD_POLICY_ID;
+package ta1;
 
 /**
  * @author chendong
