@@ -477,4 +477,147 @@ Lock接口的认识与使用
 
 
 线程安全性问题简单总结
+	出现线程安全性问题的条件
+		1 在多线程的环境下
+		2 必须有共享资源
+		3 对共享资源进行非原子性操作
+		
+	解决线程安全性问题的途径
+		1 synchronized (性能上相对比较慢，jdk6之后对其进行了优化，性能相对得到了提升)
+					   (偏向锁，轻量级锁，重量级索)
+		2 volatile (线程可见，但不能保证原子性操作)
+		3 JDK 提供的原子类
+		4 试用Lock(共享锁，排它锁...)
+		
+	认识的 “*锁”
+		偏向锁
+		轻量级锁
+		重量级锁
+		重入锁
+		自旋锁
+		共享锁
+		独占锁
+		排它锁
+		读写锁
+		非公平锁
+		公平锁
+		死锁
+		活锁
+		乐观锁
+		悲观锁
+
+线程之间的通信
+	volatile
+	wait()
+	notify()
+	notifyAll()
+	
+	wait 和 notify 需要在同步代码块中执行
+	wait 和 notify 调用的是当前锁的实例的 wait 和notify方法
+	在使用wait的时候，会释放锁，但线程依旧是处于等待状态
+	notify方法会随机叫醒一个wait状态的线程
+	notifyAll 方法会叫醒所有处于wait状态的线程，争夺时间片的线程只有一个
+	调用notify&notifyAll方法会执行锁，但是要等到该notify/notifyAll方法所在的synchronized释放锁之后才可以获取到锁
+	
+	
+生产者消费者模式
+	public class Tmall {
+		private int count;
+		public final int MAX_COUNT = 10;
+		public synchronized void push(){
+			while(count >= MAX_COUNT){
+				try{
+					System.out.println(Thread.currentThread().getName() + "库存数量达到上限，生产者停止生产");
+					wait();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			count++;
+			System.out.println(Thread.currentThread().getName() + "生产者生产，当前库存为: " + count);
+			notifyAll();
+		}
+		public synchronized void take(){
+			while(count <= 0){
+				try {
+					System.out.println(Thread.currentThread().getName() + " 库存数量为零， 消费者等待...");
+					wait();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			count--;
+			System.out.println(Thread.currentThread().getName() + " 消费者消费， 当前库存为: " + count);
+			notifyAll();
+		}
+	}
+			
+	
+	public class PushTarget implements Runnable{
+		private Tmall tmall;
+		public PushTarget(Tmall tmall){
+			this.tmall = tmall;
+		}
+		@Override
+		public void run() {
+			while (true){
+				tmall.push();
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	public class TakeTarget implements Runnable {
+		private Tmall tmall;
+		public TakeTarget(Tmall tmall){
+			this.tmall = tmall;
+		}
+		@Override
+		public void run() {
+			while (true){
+				tmall.take();
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	
+	public class Main {
+		public static void main(String[] args) {
+			Tmall tmall = new Tmall();
+			PushTarget p = new PushTarget(tmall);
+			TakeTarget t = new TakeTarget(tmall);
+			new Thread(p).start();
+			new Thread(p).start();
+			new Thread(p).start();
+			new Thread(p).start();
+			new Thread(p).start();
+			new Thread(t).start();
+			new Thread(t).start();
+			new Thread(t).start();
+		}
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
