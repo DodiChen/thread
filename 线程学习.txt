@@ -440,5 +440,41 @@ Lock接口的认识与使用
 	读与写 互斥
 	写与写 互斥
 	
-	
+读写锁需要保存的状态
+	写锁冲入的次数
+	读锁的个数
+	每个读锁重入的次数
+
+锁降级
+	锁降级是指写锁降级为读锁
+
+	private volatile boolean isUpdate;
+
+    public void readWrite(){
+
+        // 要读isUpdate，此处要加读锁，保证isUpdate可以拿到最新的值
+
+        r.lock();
+        if(isUpdate){
+            r.unlock(); // 因为与读锁互斥，所以此处释放
+
+            w.lock();
+            map.put("xxx", "xxx");
+            r.lock(); // 锁的降级
+            w.unlock();
+        }
+
+        Object obj = map.get("xxx");
+        System.out.println(obj);
+        r.unlock();
+    }
+
+	具体操作，在写锁没有释放的时候，获取到读锁，再释放写锁
+
+锁升级
+	锁升级是值读锁升级为写锁
+	具体操作，在读锁没有释放的时候，获取到写锁，再释放读锁
+
+
+线程安全性问题简单总结
 	
