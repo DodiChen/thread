@@ -5,8 +5,8 @@ package ta7;
  * @date 2019/4/22 21:22
  */
 public class PushTarget implements Runnable{
-    private Tmall tmall;
-    public PushTarget(Tmall tmall){
+    private Tmall2 tmall;
+    public PushTarget(Tmall2 tmall){
         this.tmall = tmall;
     }
     @Override

@@ -5,8 +5,8 @@ package ta7;
  * @date 2019/4/22 21:23
  */
 public class TakeTarget implements Runnable {
-    private Tmall tmall;
-    public TakeTarget(Tmall tmall){
+    private Tmall2 tmall;
+    public TakeTarget(Tmall2 tmall){
         this.tmall = tmall;
     }
     @Override
