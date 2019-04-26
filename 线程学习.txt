@@ -818,3 +818,358 @@ ThreadLocal 原理与使用
 		}
 	}
 	
+线程间的通信 - CyclicBarrier
+	public class Demo {
+
+
+		Random random = new Random();
+
+		public void meeting(CyclicBarrier barrier){
+			try {
+				Thread.sleep(random.nextInt(4000));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			System.out.println(Thread.currentThread().getName() + " 到达会议室， 等待开会...");
+
+			try {
+				barrier.await();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (BrokenBarrierException e) {
+				e.printStackTrace();
+			}
+			System.out.println(Thread.currentThread().getName() + "发言");
+		}
+
+		public static void main(String[] args) {
+			Demo demo = new Demo();
+			CyclicBarrier barrier = new CyclicBarrier(10, new Runnable() {
+				@Override
+				public void run() {
+					System.out.println("好，我们开始开户...");
+				}
+			});
+
+			for(int i = 0; i < 10; i++){
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						demo.meeting(barrier);
+					}
+				}).start();
+			}
+		}
+
+	}
+
+线程间的通信 - Semaphore
+	public class Demo {
+
+		public void method(Semaphore semaphore){
+			try {
+				semaphore.acquire();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			System.out.println(Thread.currentThread().getName() + " is running....");
+
+			try {
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			semaphore.release();
+		}
+
+		public static void main(String[] args) {
+			Demo d = new Demo();
+
+			Semaphore semaphore = new Semaphore(10);
+			while(true){
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						d.method(semaphore);
+					}
+				}).start();
+			}
+
+		}
+
+	}
+
+线程间的通信 - Exchanger
+	public class Demo {
+
+		public void a(Exchanger<String> exchanger){
+			System.out.println("a 方法执行...");
+
+			try {
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			String res = "12345";
+
+			try {
+				System.out.println("等待对比结果...");
+				String value = exchanger.exchange(res);
+				System.out.println("开始进行比对...");
+				System.out.println("对比结果为: " + value.equals(res));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		public void b(Exchanger<String> exchanger){
+			System.out.println("b 方法开始执行...");
+			try {
+				Thread.sleep(4000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			String res = "12345";
+			try {
+				String value = exchanger.exchange(res);
+				System.out.println("开始进行比对...");
+				System.out.println("比对结果为: " + value.equals(res));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		public static void main(String[] args) {
+			Demo d = new Demo();
+			Exchanger<String> exch = new Exchanger<String>();
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					d.a(exch);
+				}
+			}).start();
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					d.b(exch);
+				}
+			}).start();
+		}
+	}
+
+提前完成任务之Future使用
+	public class Dmeo {
+
+		public static void main(String[] args) throws ExecutionException, InterruptedException {
+
+			Callable<Integer> call = new Callable<Integer>() {
+				@Override
+				public Integer call() throws Exception {
+					System.out.println("正在计算结果....");
+					Thread.sleep(3000);
+					return 1;
+				}
+			} ;
+			FutureTask<Integer> task = new FutureTask<Integer>(call);
+			Thread thread = new Thread(task);
+			thread.start();
+
+			// do something
+			System.out.println("干点别的...");
+			Integer result = task.get();
+			System.out.println("拿到的结果是....");
+		}
+	}
+
+自己实现一个future
+	以买蛋糕为例，我去买蛋糕，蛋糕生产，我去上班，下班之后来取蛋糕
+	public class ProductFactory {
+
+		public Future createProduct(String name){
+			System.out.println("下单成功，你可以去上班了...");
+			Future f = new Future(); // 创建一个订单
+			// 生产产品
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					Product p = new Product(new Random().nextInt(), name);
+					f.setProduct(p);
+				}
+			}).start();
+
+			return f;
+		}
+
+	}
+
+	public class Product {
+
+		private int id;
+
+		private String name;
+
+		public Product(int id, String name) {
+			try {
+				System.out.println("开始生产: " + name);
+				Thread.sleep(4000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			this.id = id;
+			this.name = name;
+			System.out.println(name + " 生产完毕");
+		}
+
+		public int getId() {
+			return id;
+		}
+
+		public void setId(int id) {
+			this.id = id;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return "Product{" +
+					"id=" + id +
+					", name='" + name + '\'' +
+					'}';
+		}
+	}
+
+	public class Future {
+
+		private Product product;
+
+		private boolean done;
+
+		public synchronized void setProduct(Product product){
+			if(done){
+				return;
+			}
+
+			this.product = product;
+			this.done = true;
+			notifyAll();
+		}
+
+
+		public synchronized Product get(){
+			while(!done){
+				try {
+					wait();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			return product;
+		}
+
+	}
+
+	public class Demo {
+
+		public static void main(String[] args) {
+
+			ProductFactory pf = new ProductFactory();
+			Future f = pf.createProduct("蛋糕");
+			System.out.println("我去上班了，下了班我来取蛋糕...");
+			// 拿着订单获取产品
+			System.out.println("我拿着蛋糕回家..." + f.get());
+		}
+	}
+
+Future API 以及应用场景
+	Callable<Integer> call = new Callable<Integer>() {
+		@Override
+		public Integer call() throws Exception {
+			System.out.println("正在计算结果....");
+			Thread.sleep(3000);
+			return 1;
+		}
+	} ;
+	FutureTask<Integer> task = new FutureTask<Integer>(call);
+	Thread thread = new Thread(task);
+	thread.start();
+
+	// do something
+	System.out.println("干点别的...");
+	Integer result = task.get();
+	System.out.println("拿到的结果是....");
+
+
+Callable和Runnable的区别
+	Runnable 是被线程调用的，在run方法是异步执行的
+	Callable的call方法，不是异步执行的，是由Future的run方法调用的
+
+Fork/Join 框架
+	多线程的目的不仅仅是提高程序运行的性能，还可以充分利用CPU资源
+	用Fork、Join 思想求 1 - 100 的和，第一个线程 1-50， 第二个线程51-100， 再继续分割， 一个线程 1 - 25， 另一个 26- 50，一次类推，一直在分割成50个线程为止
+	public class Demo extends RecursiveTask<Integer> {
+
+		private int begin;
+		private int end;
+
+		public Demo(int begin, int end){
+			this.begin = begin;
+			this.end = end;
+		}
+
+		@Override
+		protected Integer compute() {
+
+			int sum = 0;
+			// 拆分任务
+			if(end - begin <= 2){
+				// 计算
+				for(int i = begin; i <= end; i++){
+					sum += i;
+				}
+			}else{
+				// 拆分
+				Demo d1 = new Demo(begin, (begin + end) / 2);
+				Demo d2 = new Demo((begin + end)/2 + 1, end);
+				// 执行任务
+				d1.fork();
+				d2.fork();
+				Integer a = d1.join();
+				Integer b = d2.join();
+				sum = a + b;
+			}
+			return sum;
+		}
+
+		public static void main(String[] args) throws ExecutionException, InterruptedException {
+			ForkJoinPool pool = new ForkJoinPool();
+			Future<Integer> future = pool.submit(new Demo(1, 1000));
+			System.out.println(",,,,,,,,,,,,,");
+			System.out.println("计算的值为: " + future.get());
+		}
+	}
+
+并发容器和同步容器
+	CopyOnWriteArrayList 
+	ConcurrentLinkedQueue(非阻塞)
+
+阻塞队列
+	BlockingQueue
+		两个阻塞方法
+			put()
+			take()
+		抛出异常
+			add()
+			remove()
+		有返回值
+			offer()
+			poll()
+
+

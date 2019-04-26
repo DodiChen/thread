@@ -16,6 +16,11 @@ public class Demo {
             e.printStackTrace();
         }
         System.out.println(Thread.currentThread().getName() + " 到达会议室， 等待开会...");
+        if(Thread.currentThread().getName().equalsIgnoreCase("Thread-7")){
+            //Thread.currentThread().interrupt();
+            barrier.reset();
+
+        }
 
         try {
             barrier.await();
@@ -44,6 +49,22 @@ public class Demo {
                 }
             }).start();
         }
+
+        // 监控等待线程数
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(true){
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    System.out.println("等待的线程数 " + barrier.getNumberWaiting());
+                    System.out.println("is broken " + barrier.isBroken());
+                }
+            }
+        }).start();
     }
 
 }
