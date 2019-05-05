@@ -1172,4 +1172,206 @@ Fork/Join 框架
 			offer()
 			poll()
 
+线程池
+	线程池的优势
+		第一：降低资源消耗，通过重复利用已创建的线程降低创建和销毁造成的消耗
+		第二：提高响应速度，当任务达到时，任务可以不需要等到线程创建就立即执行
+		第三：提高线程的可管理性，线程是稀缺资源，如果无限制的创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一的分配，调优和监控。但是要做到合理的利用线程池，必须对其原理了如指掌
 
+
+LongAdder
+
+StampedLock
+	ReadWriteLock写锁是互斥的
+		读写是互斥的
+		写写是互斥的
+	StampLock 
+		读锁并不会阻塞写锁
+		如何实现：
+			拿到锁之后会返回一个票据，根据票据的值是否被改变，判定是否在读的过程中发生了写，或者在写的过程中发生了读
+		
+		public class Demo {
+
+			private StampedLock lock = new StampedLock();
+
+			private int balance;
+
+			// 悲观锁 - 开始
+			public void read(){
+				long stamp = lock.readLock();
+				int c = balance;
+				System.out.println(c);
+				lock.unlock(stamp);
+			}
+
+			public void write(int value){
+				long stamp = lock.writeLock();
+				balance += value;
+				lock.unlock(stamp);
+			}
+			// 悲观锁 - 结束
+
+			public void conditionReadWrite(int value){
+				// 首先判断balance的值是否符合更新的条件
+				long stamp = lock.readLock();
+				while(balance > 0){
+					long writeStamp = lock.tryConvertToWriteLock(stamp);
+					if(writeStamp != 0){ // 成功转换成写锁
+						stamp = writeStamp;
+						balance += value;
+						break;
+					}else{
+						// 没有转换成写锁，这里需要首先释放读锁，然后再拿到写锁
+						lock.unlockRead(stamp);
+						// 获取写锁
+						stamp = lock.writeLock();
+					}
+				}
+				lock.unlock(stamp);
+			}
+
+
+			// 乐观锁 - 开始
+			public void optimisticRead(){
+				long stamp = lock.tryOptimisticRead();
+				int c = balance;
+				// 这里可能会出现了写操作，因此要进行判断
+				if(!lock.validate(stamp)){
+					// 要重新读取
+					long readStamp = lock.readLock();
+					c = balance;
+					stamp = readStamp;
+				}
+				lock.unlockRead(stamp);
+			}
+
+
+
+			// 乐观锁 - 结束
+
+			public static void main(String[] args) {
+
+			}
+
+		}
+
+重排序问题
+	什么是重排序
+		编译器和处理器为了提高程序的运行性能，会对代码指令重新排序
+	数据依赖性(as-if-serial)
+		单线程下，保证指令运行的结果正常
+			读后写
+			写后写
+			写后读
+	指令重排序分类
+		编译器重排序
+		处理器重排序
+	为什么要进行指令重排序
+		提高程序的运行性能
+	指令重排序带来的影响
+	竞争与同步
+
+happen-before
+	Happeds-before 是用来指定两个操作之间的执行顺序，提供跨线程的内存可见性
+	在java内存模型中，如果一个操作执行的结果需要另一个操作可见，那么这两个操作之间必然存在happens-before关系
+	happens-before 规则如下：
+		程序顺序规则
+		监控器锁规则
+		volatile变量规则
+		传递性
+		Start规则
+		Join规则
+
+	程序线程规则
+		单个线程中的每个操作，总是前一个操作happens-before于该线程中的任意后续操作
+	监视器规则
+		对一个锁的解锁，总是happens-before于随后对这个锁的解锁
+	volatile变量规则
+		对一个volatile域的写，happens-before于任意一个后续对这个volatile域的读
+	传递性
+		A happens-before B
+		B happend-before C
+		则
+		A happens-before C
+	Start规则
+		A 线程中调用了 B 线程，那么 A 线程中的代码happens-before B线程的代码
+	Join规则
+		在一个地方join，那么join的线程 happens-before 之前的线程
+
+锁的内存语义
+	锁的释放和获取所建立的 happens-before关系
+		/**
+		* 程序次序规则
+		*  1 happens-before 2 , 2 happens-before 3, 4 happens-before 5, 5 happens-before 6
+		* 监视器规则
+		*  3 happens-before 4
+		* 传递性
+		*  1 happens-before 2, 2 happens-before 3, 3 happens-before 4, 4 happens-before 5, 5 happens-before 6
+		*/
+		public class Demo {
+
+			private int value;
+
+			public synchronized void a(){ // 1 获取锁
+				value++; // 2
+			} // 3 释放锁
+
+			public synchronized void b(){ // 4 获取锁
+				int a = value; // 5
+				// 处理其他操作
+			} // 6 释放锁
+
+		}	
+	锁的释放和获取的内存语义
+		锁除了让临界区互斥执行外，还可以让释放锁的线程向获取同一个锁的线程发送消息
+
+volatile的内存语义
+	Volatile读写所建立的happens-before关系
+		/**
+		* 程序次序规则
+		*  1 happens-before 2 , 2 happens-before 3, 3 happens-before 4, 4 happens-before 5
+		* volatile 规则
+		*  2 happens-before 3
+		* 传递性
+		*  1 happens-before 2, 2 happens-before 3, 3 happens-before 4, 4 happens-before 5
+		*/
+		public class Demo {
+
+			private volatile boolean flag;
+			private volatile int a;
+
+			public void writer(){
+				a = 1; // 1
+				flag = true; //2
+			}
+
+			public void reader(){
+				if(flag){// 3
+					int b = a + 1;//4
+					System.out.println(b);//5
+				}
+
+			}
+
+		}
+	volatile 读写的内存语义
+		写一个volatile变量时，java的内存模型会把该线程对应的本地内存中的共享变量值刷新到主内存中
+		读一个volatile变量时，java内存模型会把当前线程对应的本地内存中的共享变量置为无效，然后从主内存中读取该共享变量
+	
+
+final 域的内存语义
+	写final域的重排序规则
+		写final域的重排序规则禁止把final域的写 重排序到构造方法之外
+		java的内存模型禁止编译器把final域的写 重排序到构造方法之外
+		编译器会在final域的写之后，在构造方法执行完毕之前，插入一个内存屏障storestore，保证处理器把final域的写操作在构造方法中执行
+
+		内存屏障
+			LoadLoad
+			StoreStore
+			LoadStore
+			StoreLoad
+	读final域的重排序规则
+		在一个线程中，初次读对象引用和初次读该对象所包含的final域，java内存模型禁止处理器重排序这两个操作
+	final域为静态类型
+	final域为抽象类型
+		在构造方法内对一个final引用的对象的成员域的写入，与随后在构造方法外把这个被构造对象的引用赋值给一个引用变量，这两个操作之间不能重排序
